@@ -7,14 +7,18 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-  <div class="container">
-    <h1>Gemini AI Chatbot</h1>
+  <main class="chat-container">
+    <header class="chat-header">
+      <h1>Gemini AI Chatbot</h1>
+    </header>
     <div id="chat-box" class="chat-box"></div>
-    <form id="chat-form">
-      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required />
-      <button type="submit">Send</button>
-    </form>
-  </div>
+    <footer class="chat-footer">
+      <form id="chat-form">
+        <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required aria-label="Chat input" />
+        <button type="submit" aria-label="Send message">Send</button>
+      </form>
+    </footer>
+  </main>
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 const form = document.getElementById('chat-form');
 const input = document.getElementById('user-input');
 const chatBox = document.getElementById('chat-box');
+const submitButton = form.querySelector('button[type="submit"]');
 const API_ENDPOINT = '/api/chat';
 
 /**
@@ -8,7 +9,7 @@ const API_ENDPOINT = '/api/chat';
  * Supports:
  * - Headings (h1-h6)
  * - Horizontal Rules (---, ***, ___)
- * - Code blocks (```)
+ * - Code blocks (```) with language detection
  * - Unordered lists (* or -)
  * - Ordered lists (1.)
  * - Bold (**)
@@ -146,38 +147,63 @@ function markdownToHtml(markdown) {
 
 
 /**
- * Appends a message to the chat box and scrolls to the latest message.
- * @param {string} sender - The sender of the message, either 'user' or 'bot'.
- * @param {string} text - The content of the message.
+ * Appends a message to the chat box.
+ * @param {string} sender - The sender ('user' or 'bot').
+ * @param {string} content - The message content (text or HTML).
+ * @param {object} [options={}] - Options for appending.
+ * @param {boolean} [options.isHtml=false] - Whether the content is HTML.
  * @returns {HTMLElement} The newly created message element.
  */
-function appendMessage(sender, text) {
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message', sender);
-    msgDiv.textContent = text; // Safely set as text content by default
-    chatBox.appendChild(msgDiv);
+function appendMessage(sender, content, { isHtml = false } = {}) {
+    const row = document.createElement('div');
+    row.classList.add('message-row', sender);
+
+    const message = document.createElement('div');
+    message.classList.add('message', sender);
+
+    if (isHtml) {
+        message.innerHTML = content;
+    } else {
+        message.textContent = content;
+    }
+
+    row.appendChild(message);
+    chatBox.appendChild(row);
     // Scroll to the bottom of the chat box to show the latest message
     chatBox.scrollTop = chatBox.scrollHeight;
-    return msgDiv;
+
+    return message; // Return the inner message div for updates
+}
+
+/**
+ * Toggles the disabled state of the chat form.
+ * @param {boolean} isDisabled - Whether the form should be disabled.
+ */
+function setFormDisabled(isDisabled) {
+    input.disabled = isDisabled;
+    submitButton.disabled = isDisabled;
+    if (isDisabled) {
+        submitButton.textContent = 'Sending...';
+    } else {
+        submitButton.textContent = 'Send';
+    }
 }
 
 form.addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const userMessage = input.value.trim();
-    if (!userMessage) {
+    if (!userMessage || submitButton.disabled) {
         return;
     }
 
-    // 1. Add user's message to the chat box (as plain text).
+    setFormDisabled(true);
     appendMessage('user', userMessage);
     input.value = '';
 
-    // 2. Show a temporary "Thinking..." message and keep a reference to it.
     const thinkingMessageElement = appendMessage('bot', 'Thinking...');
 
     try {
-        // 3. Send the user's message to the backend API.
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -192,12 +218,12 @@ form.addEventListener('submit', async function(e) {
         });
 
         if (!response.ok) {
-            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            const errorText = await response.text().catch(() => 'Could not read error response.');
+            throw new Error(`Server error: ${response.status} ${response.statusText}. ${errorText}`);
         }
 
         const data = await response.json();
 
-        // 4. Replace "Thinking..." with the AI's actual reply, rendered as HTML.
         if (data && data.result) {
             thinkingMessageElement.innerHTML = markdownToHtml(data.result);
         } else {
@@ -205,7 +231,9 @@ form.addEventListener('submit', async function(e) {
         }
     } catch (error) {
         console.error('Failed to get response:', error);
-        // 5. Update the message to show an error.
         thinkingMessageElement.textContent = 'Failed to get response from server.';
+    } finally {
+        setFormDisabled(false);
+        input.focus(); // Re-focus the input for the next message
     }
 });
